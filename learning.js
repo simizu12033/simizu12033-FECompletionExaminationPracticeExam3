@@ -61,7 +61,7 @@ function renderLearning(){
     if(learningState.revealed.has(q.n))node.classList.add("explanation-open");
     node.querySelector(".number").textContent=`Q${String(q.n).padStart(2,"0")}`;
     node.querySelector(".meta").textContent=q.field;
-    node.querySelector("h2").textContent=q.title;
+    node.querySelector("h2").textContent=(isReview()||learningState.revealed.has(q.n))?q.title:`問${q.n}`;
     const revealButton=document.createElement("button");
     revealButton.type="button";
     revealButton.className="explain-toggle";
@@ -126,6 +126,14 @@ function renderLearning(){
     node.querySelector(".summary").textContent=q.summary;
     node.querySelector(".reasoning").innerHTML=q.reasoning.map(x=>`<li>${esc(x)}</li>`).join("");
     node.querySelector(".trap p").textContent=q.trap;
+    if(q.deep){
+      const more=document.createElement("section");more.className="deep-explanation";
+      more.innerHTML=`<h3>具体例・もう一歩の理解</h3><p>${esc(q.deep.example)}</p><details><summary>理解を確かめる：${esc(q.deep.check)}</summary><p>${esc(q.deep.answer)}</p></details>`;
+      node.querySelector(".explanation").appendChild(more);
+    }
+    if(q.reference){const ref=document.createElement("p");ref.innerHTML=`<a href="${esc(q.reference[1])}" target="_blank" rel="noopener">参考：${esc(q.reference[0])}</a>`;node.querySelector(".explanation").appendChild(ref);}
+    if(q.n===7){const note=document.createElement("p");note.className="trap";note.textContent="問7の原文には変数名と手順の不整合があります。このサイトでは、右の子→左の子→自分の順に処理する意図として採点します。";node.querySelector(".answer-input").before(note);}
+
     node.querySelector(".diagram").innerHTML=window.renderRichVisual(q);
     node.querySelector("figcaption").textContent=q.caption;
     const check=node.querySelector(".understand-check input");
