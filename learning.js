@@ -32,11 +32,13 @@ const saveLearning=()=>{
   storage.setItem(STORAGE.revealed,JSON.stringify([...learningState.revealed]));
   storage.setItem(STORAGE.done,JSON.stringify([...learningState.understood]));
 };
-const answeredCount=()=>Object.keys(learningState.answers).length;
-const firstScore=()=>QUESTIONS.filter(q=>learningState.answers[q.n]===q.answer).length;
+const gradedQuestions=QUESTIONS.filter(q=>q.n!==7);
+const gradedTotal=gradedQuestions.length;
+const answeredCount=()=>gradedQuestions.filter(q=>["ア","イ","ウ","エ"].includes(learningState.answers[q.n])).length;
+const firstScore=()=>gradedQuestions.filter(q=>learningState.answers[q.n]===q.answer).length;
 const isReview=()=>learningState.phase==="review";
 const currentAnswer=q=>learningState.retryAnswers[q.n]||learningState.answers[q.n];
-const wasWrong=q=>learningState.answers[q.n]!==q.answer;
+const wasWrong=q=>q.n!==7&&learningState.answers[q.n]!==q.answer;
 const retryCheckedAnswer=q=>learningState.retryChecked[q.n];
 const retryCheckedCorrect=q=>retryCheckedAnswer(q)===q.answer;
 const retryWasChecked=q=>Object.prototype.hasOwnProperty.call(learningState.retryChecked,q.n);
@@ -77,6 +79,13 @@ function renderLearning(){
     const image=node.querySelector(".problem-panel img");
     image.src=`assets/questions/q${String(q.n).padStart(2,"0")}.png`;
     image.alt=`問${q.n}の問題文`;
+    image.addEventListener("error",()=>{
+      const warning=document.createElement("p");warning.className="asset-warning";warning.setAttribute("role","alert");
+      warning.textContent=`問${q.n}の問題画像を読み込めません。assets/questions/q${String(q.n).padStart(2,"0")}.png の配置を確認してください。`;
+      image.after(warning);
+    },{once:true});
+    const zoom=document.createElement("a");zoom.href=image.src;zoom.target="_blank";zoom.rel="noopener";zoom.textContent="問題画像を拡大 ↗";
+    image.after(zoom);
 
     node.querySelectorAll(".answer-input input").forEach(input=>{
       input.name=`answer-${q.n}`;
@@ -101,7 +110,9 @@ function renderLearning(){
 
     if(isReview()){
       const line=node.querySelector(".result-line");
-      if(wasWrong(q)){
+      if(q.n===7){
+        line.textContent="採点対象外（学習用）。正誤・得点には含めません。";
+      }else if(wasWrong(q)){
         if(retryWasChecked(q)){
           const ok=retryCheckedCorrect(q);
           line.className=`result-line ${ok?"correct":"wrong"}`;
@@ -120,7 +131,8 @@ function renderLearning(){
       }
     }
 
-    node.querySelector(".answer-strip strong").textContent=q.answer;
+    node.querySelector(".answer-strip strong").textContent=q.n===7?"参考："+q.answer:q.answer;
+    if(q.n===7)node.querySelector(".answer-strip span").textContent="仮定した場合";
     node.querySelector(".answer-strip p").textContent=q.answerText;
     node.querySelector(".answer-strip").hidden=false;
     node.querySelector(".summary").textContent=q.summary;
@@ -132,7 +144,7 @@ function renderLearning(){
       node.querySelector(".explanation").appendChild(more);
     }
     if(q.reference){const ref=document.createElement("p");ref.innerHTML=`<a href="${esc(q.reference[1])}" target="_blank" rel="noopener">参考：${esc(q.reference[0])}</a>`;node.querySelector(".explanation").appendChild(ref);}
-    if(q.n===7){const note=document.createElement("p");note.className="trap";note.textContent="問7の原文には変数名と手順の不整合があります。このサイトでは、右の子→左の子→自分の順に処理する意図として採点します。";node.querySelector(".answer-input").before(note);}
+    if(q.n===7){const note=document.createElement("p");note.className="trap";note.textContent="問7の原文には変数名と手順の不整合があります。問7は採点対象外です。解説は右の子→左の子→自分と仮定した学習用の例で、原文の正答を確定するものではありません。";node.querySelector(".answer-input").before(note);}
 
     node.querySelector(".diagram").innerHTML=window.renderRichVisual(q);
     node.querySelector("figcaption").textContent=q.caption;
@@ -164,7 +176,7 @@ function updatePhasePanel(){
   qs("#listTitle").textContent=isReview()?"採点結果と解説":"試験問題";
   qs("#phaseMessage").textContent=isReview()
     ?`採点済みです。初回に間違えた問題は選択肢を押して再回答できます。正誤は「再回答を採点する」を押した時だけ表示します。（未解決 ${unresolved}問）`
-    :`${answeredCount()}問回答済み。迷った問題は「解説表示」を開いて確認してから、改めて回答できます。60問すべて回答すると採点できます。`;
+    :`${answeredCount()}問回答済み。迷った問題は「解説表示」を開いて確認してから、改めて回答できます。問7を除く59問に回答すると採点できます。`;
   document.querySelectorAll(".retry-grade-area").forEach(area=>{
     area.hidden=!isReview()||QUESTIONS.every(q=>!wasWrong(q));
   });
@@ -172,17 +184,17 @@ function updatePhasePanel(){
     button.disabled=retryAnswers===0;
   });
   document.querySelectorAll('[data-action="submit"]').forEach(button=>{
-    button.textContent="60問を採点する";
-    button.disabled=answeredCount()!==60;
+    button.textContent="59問を採点する（問7を除く）";
+    button.disabled=answeredCount()!==gradedTotal;
   });
   document.querySelectorAll("[data-exam-message]").forEach(message=>{
-    message.textContent=answeredCount()===60?"全60問に回答しました。採点できます。":`現在 ${answeredCount()} / 60問回答済みです。`;
+    message.textContent=answeredCount()===gradedTotal?"採点対象の全59問に回答しました。採点できます。":`現在 ${answeredCount()} / ${gradedTotal}問回答済みです。`;
   });
   const summary=qs("#scoreSummary");
   summary.hidden=!isReview();
   qs("#answerLegend").hidden=!isReview();
   if(isReview()){
-    summary.innerHTML=`<div><strong>${totalCorrect}</strong><span>正解</span></div><div><strong>${60-totalCorrect}</strong><span>不正解</span></div><div><strong>${retryCorrect}</strong><span>再回答での正解</span></div><div><strong>${learningState.understood.size}</strong><span>理解済み</span></div>`;
+    summary.innerHTML=`<div><strong>${totalCorrect}</strong><span>正解（59問中）</span></div><div><strong>${gradedTotal-totalCorrect}</strong><span>不正解</span></div><div><strong>${retryCorrect}</strong><span>再回答での正解</span></div><div><strong>${learningState.understood.size}</strong><span>理解済み</span></div>`;
   }
   document.querySelectorAll("#phaseSteps [data-step]").forEach(el=>{
     el.classList.remove("active","finished");
@@ -207,6 +219,7 @@ function renderLearningMap(){
     let cls="";
     if(!isReview()&&learningState.answers[q.n])cls="answered";
     if(isReview())cls=wasWrong(q)?(retryCheckedCorrect(q)?"correct":"wrong"):"correct";
+    if(q.n===7)cls="excluded";
     if(learningState.understood.has(q.n))cls+=" done";
     return `<a href="#q${q.n}" class="${cls}">${q.n}</a>`;
   }).join("");
@@ -214,26 +227,33 @@ function renderLearningMap(){
 
 function updateLearningHeader(){
   const count=isReview()?learningState.understood.size:answeredCount();
-  qs("#progressText").textContent=isReview()?`理解 ${count} / 60`:`試験 ${count} / 60`;
-  qs("#progressBar").style.width=`${count/60*100}%`;
+  qs("#progressText").textContent=isReview()?`理解 ${count} / 60`:`試験 ${count} / ${gradedTotal}（問7除外）`;
+  qs("#progressBar").style.width=`${count/(isReview()?60:gradedTotal)*100}%`;
 }
 
 function makeFirstReport(){
   const fields={};
-  QUESTIONS.forEach(q=>{
+  gradedQuestions.forEach(q=>{
     if(!fields[q.field])fields[q.field]={correct:0,total:0};
     fields[q.field].total++;
     if(learningState.answers[q.n]===q.answer)fields[q.field].correct++;
   });
   return {
     gradedAt:new Date().toISOString(),
+    gradingVersion:2,
+    total:gradedTotal,
     score:firstScore(),
     fields,
-    wrong:QUESTIONS.filter(q=>learningState.answers[q.n]!==q.answer).map(q=>q.n)
+    wrong:gradedQuestions.filter(q=>learningState.answers[q.n]!==q.answer).map(q=>q.n)
   };
 }
 function ensureFirstReport(){
-  if(!storage.getItem(STORAGE.report))storage.setItem(STORAGE.report,JSON.stringify(makeFirstReport()));
+  const old=readJSON(STORAGE.report,null);
+  if(!old||old.gradingVersion!==2){
+    const report=makeFirstReport();
+    if(old?.gradedAt)report.gradedAt=old.gradedAt;
+    storage.setItem(STORAGE.report,JSON.stringify(report));
+  }
 }
 function formatDate(date){
   return new Intl.DateTimeFormat("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"}).format(date);
@@ -244,7 +264,7 @@ function renderFirstReport(){
   qs("#learningReport").hidden=false;
   const graded=new Date(report.gradedAt),retest=new Date(graded);
   retest.setDate(retest.getDate()+7);
-  qs("#reportDate").textContent=`初回採点日：${formatDate(graded)}　総合正答率：${Math.round(report.score/60*100)}%（${report.score}/60問）`;
+  qs("#reportDate").textContent=`初回採点日：${formatDate(graded)}　総合正答率：${Math.round(report.score/report.total*100)}%（${report.score}/${report.total}問・問7は採点対象外）`;
   const entries=Object.entries(report.fields).map(([field,v])=>({field,...v,rate:Math.round(v.correct/v.total*100)}));
   qs("#fieldStats").innerHTML=entries.map(x=>`<div><span>${x.field}</span><div><i style="width:${x.rate}%"></i></div><b>${x.rate}%</b><small>${x.correct}/${x.total}</small></div>`).join("");
   const max=Math.max(...entries.map(x=>x.rate)),min=Math.min(...entries.map(x=>x.rate));
@@ -264,7 +284,7 @@ function renderFirstReport(){
 }
 
 function jumpUnanswered(){
-  const q=QUESTIONS.find(x=>!learningState.answers[x.n]);
+  const q=gradedQuestions.find(x=>!learningState.answers[x.n]);
   if(q)document.querySelector(`#q${q.n}`)?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function gradeRetryAnswers(){
@@ -300,6 +320,7 @@ function initLearning(){
   document.querySelectorAll('[data-action="reset"]').forEach(button=>button.onclick=resetLearning);
   qs("#cancelSubmit").onclick=()=>qs("#confirmDialog").close();
   qs("#confirmSubmit").onclick=()=>{
+    if(answeredCount()!==gradedTotal)return;
     learningState.phase="review";
     learningState.retryAnswers={};
     learningState.retryChecked={};

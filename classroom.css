@@ -13,3 +13,5 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 
 .diagram-link{display:block;text-decoration:none;color:#2463a8;text-align:right}.explanation-diagram{display:block;width:100%;height:auto}.diagram-link span{font-size:.8rem}.visual{justify-content:flex-start}.review-mode .question-card .review-content{display:none}.question-card.explanation-open .review-content,.review-mode .question-card.explanation-open .review-content{display:block}.deep-explanation{margin:24px 0;padding:18px;background:#f1f7fc;border-radius:12px}.deep-explanation h3{margin-top:0}.deep-explanation details{border-top:1px solid #cbddec;padding-top:12px}.deep-explanation summary{cursor:pointer;font-weight:bold}
+
+.diagram-link svg{display:block;width:100%;height:auto}.asset-warning{padding:16px;border:2px solid #a74720;background:#fff4e8;color:#762e0e}.question-map a.excluded{background:#eee;color:#555;border:2px dashed #888}
