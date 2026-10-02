@@ -22,14 +22,21 @@ function termAnswered(term){
   return !!termStatus(term);
 }
 function filteredTerms(){return TERMS.slice();}
+function termReviewContext(){
+  if(typeof window.getTermReviewState==="function")return window.getTermReviewState();
+  return {graded:false,questionNumbers:[]};
+}
 function weakTermsFromAnswers(){
-  if(storage.getItem("fe-moshi-20231210-v1-phase")!=="review")return [];
-  const answers=readJSON("fe-moshi-20231210-v1-answers",{});
-  if(typeof QUESTIONS==="undefined")return [];
-  return TERMS.filter(t=>{
-    const q=QUESTIONS.find(x=>x.n===t.q);
-    return q&&answers[t.q]&&answers[t.q]!==q.answer;
-  });
+  const state=termReviewContext();
+  if(!state.graded)return [];
+  const selected=new Set(state.questionNumbers.map(Number));
+  return TERMS.filter(t=>selected.has(Number(t.q)));
+}
+function reviewTermMessage(){
+  const state=termReviewContext();
+  if(!state.graded)return "採点後に、復習におすすめの用語を表示します。";
+  if(!state.questionNumbers.length)return "採点対象の全問で正答できました。重要用語カードで理解を深めましょう。";
+  return "該当する用語カードはありません。各問題の解説で復習できます。";
 }
 function setActiveTerm(index){
   const list=filteredTerms();
@@ -115,7 +122,7 @@ function renderTerms(){
   }).join("");
   document.querySelector("#termWeakLinks").innerHTML=wrongWeak.length
     ?wrongWeak.map(t=>`<a href="#termLearning" data-term-jump="${t.id}">${termEsc(t.term)}<span>問${t.q}</span></a>`).join("")
-    :`<span>採点後に間違えた問題の用語がここに出ます。</span>`;
+    :`<span>${termEsc(reviewTermMessage())}</span>`;
   document.querySelector("#termPosition").textContent=list.length?`${termState.active+1} / ${list.length}`:"0 / 0";
 }
 function initTerms(){

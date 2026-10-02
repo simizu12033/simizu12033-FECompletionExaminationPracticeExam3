@@ -41,6 +41,11 @@ const currentAnswer=q=>learningState.retryAnswers[q.n]||learningState.answers[q.
 const wasWrong=q=>q.n!==7&&learningState.answers[q.n]!==q.answer;
 const retryCheckedAnswer=q=>learningState.retryChecked[q.n];
 const retryCheckedCorrect=q=>retryCheckedAnswer(q)===q.answer;
+// Use the same current state as scoring; terms do not depend on storage writes.
+window.getTermReviewState=()=>({
+  graded:isReview(),
+  questionNumbers:isReview()?gradedQuestions.filter(wasWrong).map(q=>q.n):[]
+});
 const retryWasChecked=q=>Object.prototype.hasOwnProperty.call(learningState.retryChecked,q.n);
 const needsRetry=q=>isReview()&&wasWrong(q)&&!retryCheckedCorrect(q);
 const retryAnswerCount=()=>QUESTIONS.filter(q=>wasWrong(q)&&learningState.retryAnswers[q.n]).length;
@@ -175,7 +180,7 @@ function updatePhasePanel(){
   document.querySelectorAll("[data-exam-controls]").forEach(el=>el.hidden=isReview());
   qs("#listTitle").textContent=isReview()?"採点結果と解説":"試験問題";
   qs("#phaseMessage").textContent=isReview()
-    ?`採点済みです。初回に間違えた問題は選択肢を押して再回答できます。正誤は「再回答を採点する」を押した時だけ表示します。（未解決 ${unresolved}問）`
+    ?`採点済みです。初回に正答に至らなかった問題は選択肢を押して再回答できます。正誤は「再回答を採点する」を押した時だけ表示します。（未解決 ${unresolved}問）`
     :`${answeredCount()}問回答済み。迷った問題は「解説表示」を開いて確認してから、改めて回答できます。問7を除く59問に回答すると採点できます。`;
   document.querySelectorAll(".retry-grade-area").forEach(area=>{
     area.hidden=!isReview()||QUESTIONS.every(q=>!wasWrong(q));
@@ -270,7 +275,7 @@ function renderFirstReport(){
   const max=Math.max(...entries.map(x=>x.rate)),min=Math.min(...entries.map(x=>x.rate));
   const strong=entries.filter(x=>x.rate===max).map(x=>x.field).join("・");
   const weak=entries.filter(x=>x.rate===min).map(x=>x.field).join("・");
-  qs("#strengthWeakness").innerHTML=`<div class="strength"><b>得意分野</b><strong>${strong}</strong><span>正答率 ${max}%</span></div><div class="weakness"><b>苦手分野</b><strong>${weak}</strong><span>正答率 ${min}%</span></div><p>${min<60?"苦手分野は、正答の根拠を説明できる状態を目指しましょう。":"全分野で60%以上です。間違えた問題の再現性を重点的に確認しましょう。"}</p>`;
+  qs("#strengthWeakness").innerHTML=`<div class="strength"><b>得意分野</b><strong>${strong}</strong><span>正答率 ${max}%</span></div><div class="weakness"><b>苦手分野</b><strong>${weak}</strong><span>正答率 ${min}%</span></div><p>${min<60?"苦手分野は、正答の根拠を説明できる状態を目指しましょう。":"全分野で60%以上です。復習する問題では、正答に至る考え方を説明できるか確認しましょう。"}</p>`;
   qs("#retestDate").textContent=`推奨再挑戦日：${formatDate(retest)}（初回採点から7日後）`;
   qs("#retestQuestions").innerHTML=report.wrong.length
     ?report.wrong.map(n=>`<a href="#q${n}">問${n}</a>`).join("")
