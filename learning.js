@@ -32,13 +32,13 @@ const saveLearning=()=>{
   storage.setItem(STORAGE.revealed,JSON.stringify([...learningState.revealed]));
   storage.setItem(STORAGE.done,JSON.stringify([...learningState.understood]));
 };
-const gradedQuestions=QUESTIONS.filter(q=>q.n!==7);
+const gradedQuestions=QUESTIONS.slice();
 const gradedTotal=gradedQuestions.length;
 const answeredCount=()=>gradedQuestions.filter(q=>["ア","イ","ウ","エ"].includes(learningState.answers[q.n])).length;
 const firstScore=()=>gradedQuestions.filter(q=>learningState.answers[q.n]===q.answer).length;
 const isReview=()=>learningState.phase==="review";
 const currentAnswer=q=>learningState.retryAnswers[q.n]||learningState.answers[q.n];
-const wasWrong=q=>q.n!==7&&learningState.answers[q.n]!==q.answer;
+const wasWrong=q=>learningState.answers[q.n]!==q.answer;
 const retryCheckedAnswer=q=>learningState.retryChecked[q.n];
 const retryCheckedCorrect=q=>retryCheckedAnswer(q)===q.answer;
 // Use the same current state as scoring; terms do not depend on storage writes.
@@ -115,9 +115,7 @@ function renderLearning(){
 
     if(isReview()){
       const line=node.querySelector(".result-line");
-      if(q.n===7){
-        line.textContent="採点対象外（学習用）。正誤・得点には含めません。";
-      }else if(wasWrong(q)){
+      if(wasWrong(q)){
         if(retryWasChecked(q)){
           const ok=retryCheckedCorrect(q);
           line.className=`result-line ${ok?"correct":"wrong"}`;
@@ -136,8 +134,7 @@ function renderLearning(){
       }
     }
 
-    node.querySelector(".answer-strip strong").textContent=q.n===7?"参考："+q.answer:q.answer;
-    if(q.n===7)node.querySelector(".answer-strip span").textContent="仮定した場合";
+    node.querySelector(".answer-strip strong").textContent=q.answer;
     node.querySelector(".answer-strip p").textContent=q.answerText;
     node.querySelector(".answer-strip").hidden=false;
     node.querySelector(".summary").textContent=q.summary;
@@ -149,7 +146,14 @@ function renderLearning(){
       node.querySelector(".explanation").appendChild(more);
     }
     if(q.reference){const ref=document.createElement("p");ref.innerHTML=`<a href="${esc(q.reference[1])}" target="_blank" rel="noopener">参考：${esc(q.reference[0])}</a>`;node.querySelector(".explanation").appendChild(ref);}
-    if(q.n===7){const note=document.createElement("p");note.className="trap";note.textContent="問7の原文には変数名と手順の不整合があります。問7は採点対象外です。解説は右の子→左の子→自分と仮定した学習用の例で、原文の正答を確定するものではありません。";node.querySelector(".answer-input").before(note);}
+    if(q.n===7){
+      const note=document.createElement("section");note.className="question-correction";
+      note.innerHTML=`<h3>問7の補足・訂正（解答前に確認してください）</h3>
+      <p>原文の手順1は呼出し先の変数名に誤りがあり、手順3は出力の条件が不明確です。この教材では、次の訂正版を問題の条件として解答・採点します。</p>
+      <ol><li>ノードnの右に子ノードrがあれば、f(r)を実行する。</li><li>ノードnの左に子ノードlがあれば、f(l)を実行する。</li><li>ノードn自身がもつデータを出力する。</li><li>終了する。</li></ol>
+      <p>子ノードがない場合は手順1・2を飛ばして手順3へ進みます。再帰呼出しが終わったら、呼出し元の次の手順に戻ります。図と選択肢は原文のまま使用します。</p>`;
+      node.querySelector(".answer-input").before(note);
+    }
 
     node.querySelector(".diagram").innerHTML=window.renderRichVisual(q);
     node.querySelector("figcaption").textContent=q.caption;
@@ -181,7 +185,7 @@ function updatePhasePanel(){
   qs("#listTitle").textContent=isReview()?"採点結果と解説":"試験問題";
   qs("#phaseMessage").textContent=isReview()
     ?`採点済みです。初回に正答に至らなかった問題は選択肢を押して再回答できます。正誤は「再回答を採点する」を押した時だけ表示します。（未解決 ${unresolved}問）`
-    :`${answeredCount()}問回答済み。迷った問題は「解説表示」を開いて確認してから、改めて回答できます。問7を除く59問に回答すると採点できます。`;
+    :`${answeredCount()}問回答済み。迷った問題は「解説表示」を開いて確認してから、改めて回答できます。60問すべてに回答すると採点できます。`;
   document.querySelectorAll(".retry-grade-area").forEach(area=>{
     area.hidden=!isReview()||QUESTIONS.every(q=>!wasWrong(q));
   });
@@ -189,17 +193,17 @@ function updatePhasePanel(){
     button.disabled=retryAnswers===0;
   });
   document.querySelectorAll('[data-action="submit"]').forEach(button=>{
-    button.textContent="59問を採点する（問7を除く）";
+    button.textContent="60問を採点する";
     button.disabled=answeredCount()!==gradedTotal;
   });
   document.querySelectorAll("[data-exam-message]").forEach(message=>{
-    message.textContent=answeredCount()===gradedTotal?"採点対象の全59問に回答しました。採点できます。":`現在 ${answeredCount()} / ${gradedTotal}問回答済みです。`;
+    message.textContent=answeredCount()===gradedTotal?"採点対象の全60問に回答しました。採点できます。":`現在 ${answeredCount()} / ${gradedTotal}問回答済みです。`;
   });
   const summary=qs("#scoreSummary");
   summary.hidden=!isReview();
   qs("#answerLegend").hidden=!isReview();
   if(isReview()){
-    summary.innerHTML=`<div><strong>${totalCorrect}</strong><span>正解（59問中）</span></div><div><strong>${gradedTotal-totalCorrect}</strong><span>不正解</span></div><div><strong>${retryCorrect}</strong><span>再回答での正解</span></div><div><strong>${learningState.understood.size}</strong><span>理解済み</span></div>`;
+    summary.innerHTML=`<div><strong>${totalCorrect}</strong><span>正解（60問中）</span></div><div><strong>${gradedTotal-totalCorrect}</strong><span>不正解</span></div><div><strong>${retryCorrect}</strong><span>再回答での正解</span></div><div><strong>${learningState.understood.size}</strong><span>理解済み</span></div>`;
   }
   document.querySelectorAll("#phaseSteps [data-step]").forEach(el=>{
     el.classList.remove("active","finished");
@@ -224,7 +228,6 @@ function renderLearningMap(){
     let cls="";
     if(!isReview()&&learningState.answers[q.n])cls="answered";
     if(isReview())cls=wasWrong(q)?(retryCheckedCorrect(q)?"correct":"wrong"):"correct";
-    if(q.n===7)cls="excluded";
     if(learningState.understood.has(q.n))cls+=" done";
     return `<a href="#q${q.n}" class="${cls}">${q.n}</a>`;
   }).join("");
@@ -232,7 +235,7 @@ function renderLearningMap(){
 
 function updateLearningHeader(){
   const count=isReview()?learningState.understood.size:answeredCount();
-  qs("#progressText").textContent=isReview()?`理解 ${count} / 60`:`試験 ${count} / ${gradedTotal}（問7除外）`;
+  qs("#progressText").textContent=isReview()?`理解 ${count} / 60`:`試験 ${count} / ${gradedTotal}`;
   qs("#progressBar").style.width=`${count/(isReview()?60:gradedTotal)*100}%`;
 }
 
@@ -245,7 +248,7 @@ function makeFirstReport(){
   });
   return {
     gradedAt:new Date().toISOString(),
-    gradingVersion:2,
+    gradingVersion:3,
     total:gradedTotal,
     score:firstScore(),
     fields,
@@ -254,7 +257,7 @@ function makeFirstReport(){
 }
 function ensureFirstReport(){
   const old=readJSON(STORAGE.report,null);
-  if(!old||old.gradingVersion!==2){
+  if(!old||old.gradingVersion!==3){
     const report=makeFirstReport();
     if(old?.gradedAt)report.gradedAt=old.gradedAt;
     storage.setItem(STORAGE.report,JSON.stringify(report));
@@ -269,7 +272,7 @@ function renderFirstReport(){
   qs("#learningReport").hidden=false;
   const graded=new Date(report.gradedAt),retest=new Date(graded);
   retest.setDate(retest.getDate()+7);
-  qs("#reportDate").textContent=`初回採点日：${formatDate(graded)}　総合正答率：${Math.round(report.score/report.total*100)}%（${report.score}/${report.total}問・問7は採点対象外）`;
+  qs("#reportDate").textContent=`初回採点日：${formatDate(graded)}　総合正答率：${Math.round(report.score/report.total*100)}%（${report.score}/${report.total}問）`;
   const entries=Object.entries(report.fields).map(([field,v])=>({field,...v,rate:Math.round(v.correct/v.total*100)}));
   qs("#fieldStats").innerHTML=entries.map(x=>`<div><span>${x.field}</span><div><i style="width:${x.rate}%"></i></div><b>${x.rate}%</b><small>${x.correct}/${x.total}</small></div>`).join("");
   const max=Math.max(...entries.map(x=>x.rate)),min=Math.min(...entries.map(x=>x.rate));
